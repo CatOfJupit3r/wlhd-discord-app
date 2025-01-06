@@ -1,10 +1,10 @@
-import { Client, ClientEvents, Collection, CommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { Client, ClientEvents, Collection, SlashCommandBuilder } from 'discord.js';
 
 type EventMap = {
     [K in keyof ClientEvents]: {
         name: K;
         once?: boolean;
-        execute: (client: Client, ...args: ClientEvents[K]) => Promise<void>;
+        execute: (client: iDiscordClient, ...args: ClientEvents[K]) => Promise<void>;
     };
 };
 
@@ -24,9 +24,4 @@ export interface iDiscordClient extends Client {
     commands: CommandCollection;
     attachEvents: (events: Array<Event>) => void;
     attachCommands: (commands: CommandCollection) => void;
-}
-
-export interface ActivityCommand extends Command {
-    built: SlashCommandBuilder;
-    execute: (interaction: CommandInteraction) => Promise<void>;
 }

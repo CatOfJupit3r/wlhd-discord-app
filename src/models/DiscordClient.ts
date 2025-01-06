@@ -1,15 +1,5 @@
 import { Command, CommandCollection, Event, EventCollection, iDiscordClient } from '@typing/typedefs';
-import {
-    ActivityType,
-    ApplicationCommand,
-    Client,
-    Collection,
-    Events,
-    GatewayIntentBits,
-    Partials,
-    REST,
-    Routes,
-} from 'discord.js';
+import { ApplicationCommand, Client, Collection, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
 
 class DiscordClient extends Client implements iDiscordClient {
     public readonly commands: CommandCollection;
@@ -29,8 +19,6 @@ class DiscordClient extends Client implements iDiscordClient {
 
         this.commands = new Collection();
         this.deprecated = deprecated;
-
-        this.createDefaultHandlers();
     }
 
     public connect = async (token: string) => {
@@ -55,49 +43,6 @@ class DiscordClient extends Client implements iDiscordClient {
             this.commands.set(key, command);
             console.log(`Command ${key} attached successfully!`);
         });
-    };
-
-    private createDefaultHandlers = () => {
-        this.attachEvents([
-            {
-                name: Events.InteractionCreate,
-                execute: async (client, interaction) => {
-                    if (!interaction.isCommand()) return;
-                    const command = this.commands.get(interaction.commandName);
-                    if (!command) return;
-
-                    try {
-                        await command.execute(interaction);
-                    } catch (error) {
-                        console.error(error);
-                        await interaction.reply({
-                            content: 'There was an error while executing this command!',
-                            ephemeral: true,
-                        });
-                    }
-                },
-            },
-            {
-                name: Events.ClientReady,
-                once: true,
-                execute: async () => {
-                    if (!this.user) {
-                        console.error('Client user is undefined!');
-                        return;
-                    }
-                    this.user.setPresence({
-                        status: 'online',
-                        activities: [
-                            {
-                                name: 'with your feelings',
-                                type: ActivityType.Playing,
-                            },
-                        ],
-                    });
-                    console.log(`Logged in as ${this.user?.tag} <${this.user?.id}>`);
-                },
-            },
-        ]);
     };
 
     public refreshCommands = async ({ clientID, discordToken }: { clientID: string; discordToken: string }) => {
