@@ -7,13 +7,17 @@
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "strictPropertyInitialization": false,
+        "typeRoots" : [
+            "src/@types", "node_modules/@types"
+        ],
         "baseUrl": "./src/",
         "rootDir": "./src/",
         "outDir": "./dist/",
         "paths": {
             "@utils": ["./lib/utils.ts"],
             "@validation/*": ["./validation/*"],
-            "@types/*": ["./types/*"],
+            "@typing/*": ["./typing/*"],
+            "@typing": ["./typing"],
             "@models/*": ["./models/*"],
             "@services/*": ["./services/*"],
             "@configs": ["./configs"]

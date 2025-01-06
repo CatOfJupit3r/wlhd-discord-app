@@ -5,4 +5,9 @@
  * You should declare multiple enums in this file, each for different purposes.
  */
 
-export {};
+const i18nKeys = {
+    DISCORD_GUILD_IS_NOT_LINKED: 'DISCORD_GUILD_IS_NOT_LINKED',
+    DISCORD_GUILD_IS_ALREADY_LINKED: 'DISCORD_GUILD_IS_ALREADY_LINKED',
+};
+
+export { i18nKeys as i18n };
