@@ -2,6 +2,7 @@ import { iRollSession, SecretMode } from '@typing/commands';
 import { Command, iDiscordClient } from '@typing/typedefs';
 import { isInteractionCreatedByGM } from '@utils';
 import { ButtonInteraction, ChatInputCommandInteraction, ComponentType, SlashCommandBuilder } from 'discord.js';
+import { isDescriptor } from '../../lib/game';
 import { createMainEmbed } from './components';
 import { commandName } from './constants';
 import { handleButtonInteraction } from './handlers';
@@ -13,6 +14,33 @@ export default [
         built: new SlashCommandBuilder()
             .setName(commandName)
             .setDescription('Start a new group roll session')
+            .addStringOption((option) =>
+                option.setName('attribute').setDescription('Attribute to roll for').setRequired(true).addChoices(
+                    { name: 'Strength', value: 'builtins:strength' },
+                    { name: 'Dexterity', value: 'builtins:dexterity' },
+                    { name: 'Will', value: 'builtins:will' },
+
+                    { name: 'Reflexes', value: 'builtins:reflexes' },
+                    { name: 'Caution', value: 'builtins:caution' },
+                    { name: 'Persuasion', value: 'builtins:persuasion' },
+                    { name: 'Medicine', value: 'builtins:medicine' },
+                    { name: 'Athletics', value: 'builtins:athletics' }
+                )
+            )
+            .addIntegerOption((option) =>
+                option
+                    .setName('dice-sides')
+                    .setDescription('Number of sides on the dice')
+                    .setMinValue(1)
+                    .setRequired(true)
+            )
+            .addIntegerOption((option) =>
+                option
+                    .setName('value-to-roll')
+                    .setDescription('Value to roll for success')
+                    .setMinValue(1)
+                    .setRequired(true)
+            )
             .addIntegerOption((option) =>
                 option
                     .setName('timer')
@@ -36,6 +64,16 @@ export default [
         async handleCommand(client: iDiscordClient, interaction: ChatInputCommandInteraction) {
             const timer = interaction.options.getInteger('timer', false) ?? 150;
             const secret = (interaction.options.getString('secret') ?? SecretMode.REGULAR) as SecretMode;
+            const diceSides = interaction.options.getInteger('dice-sides')!;
+            const valueToRoll = interaction.options.getInteger('value-to-roll')!;
+            const attribute = interaction.options.getString('attribute')!;
+            if (!isDescriptor(attribute)) {
+                await interaction.reply({
+                    content: 'Invalid name for attribute',
+                    ephemeral: true,
+                });
+                return;
+            }
 
             // Create new session
             const session: iRollSession = {
@@ -43,9 +81,13 @@ export default [
                 timer,
                 secret,
                 channelId: interaction.channelId,
-                initiator: interaction.user.id,
-                createdAt: new Date(),
+
                 context: {
+                    shared: {
+                        diceSides,
+                        valueToRoll,
+                        attribute,
+                    },
                     addCharacter: {
                         tab: 0,
                     },

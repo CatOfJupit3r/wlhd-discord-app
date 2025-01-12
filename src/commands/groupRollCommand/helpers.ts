@@ -1,7 +1,8 @@
 import { env } from '@configs';
-import { iCharacterInfo, iRollSession } from '@typing/commands';
+import { iCharacterInfo, iRollSession, RollParticipant } from '@typing/commands';
 import { iDiscordClient } from '@typing/typedefs';
 import { ButtonInteraction } from 'discord.js';
+import { DNDice } from '../../lib/game';
 import { createMainEmbed } from './components';
 
 export const fetchCharacters = async (): Promise<Array<iCharacterInfo>> => {
@@ -98,12 +99,17 @@ export const processRolls = async (client: iDiscordClient, session: iRollSession
 
     const results = session.participants.map((p) => {
         if (p.result === null) {
-            return `${p.descriptor} skipped their roll`;
+            return `${p.descriptor} could not roll his roll`;
         }
-        return `${p.descriptor} rolled ${p.result}`;
+        return `${p.descriptor} rolled ${p.result.finalRoll().toString()}${p.hasRolled ? '' : ' (auto-rolled)'}. Total: ${p.result.sequenceToString()}.`;
     });
 
     await channel.send({
         content: `Roll Results:\n${results.join('\n')}`,
     });
+};
+
+export const rollDice = (participant: RollParticipant) => {
+    const { attributeBonus, dice, mustRollToSucceed, timesToThrow } = participant;
+    return DNDice.fromObject(dice).roll(mustRollToSucceed, timesToThrow, attributeBonus ?? 0);
 };

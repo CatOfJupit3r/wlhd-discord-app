@@ -3,7 +3,7 @@ import { dePostfixId, isGM } from '@utils';
 import { ButtonInteraction, ComponentType } from 'discord.js';
 import { createAddCharacterEmbed, createRollEmbed } from './components';
 import { commandIds } from './constants';
-import { fetchCharacters, processRolls, updateSessionEmbed } from './helpers';
+import { fetchCharacters, processRolls, rollDice, updateSessionEmbed } from './helpers';
 
 export const handleButtonInteraction = async (client: iDiscordClient, interaction: ButtonInteraction) => {
     const session = client.rollSessions.get(interaction.message.id);
@@ -24,7 +24,7 @@ export const handleButtonInteraction = async (client: iDiscordClient, interactio
                     case 'forward':
                         session.context.addCharacter.tab = Math.min(
                             session.context.addCharacter.tab + 1,
-                            Math.floor(session.context.addCharacter.characters!.length / 5)
+                            Math.floor(session.context.shared.characters!.length / 5)
                         );
                         break;
                     case 'backward':
@@ -32,7 +32,7 @@ export const handleButtonInteraction = async (client: iDiscordClient, interactio
                         break;
                     case 'select':
                         if (descriptor) {
-                            const characterInfo = session.context.addCharacter.characters?.find(
+                            const characterInfo = session.context.shared.characters?.find(
                                 (c) => c.descriptor === descriptor
                             );
                             if (!characterInfo) {
@@ -49,8 +49,15 @@ export const handleButtonInteraction = async (client: iDiscordClient, interactio
                                 userId,
                                 channelId,
                                 attributeBonus,
-                                hasRolled: false,
+
+                                mustRollToSucceed: session.context.shared.valueToRoll,
+                                timesToThrow: 1,
                                 result: null,
+                                hasRolled: false,
+                                dice: {
+                                    amount: 1,
+                                    sides: session.context.shared.diceSides,
+                                },
                             });
                             console.log('Added character:', descriptor);
                             await updateSessionEmbed({ interaction, session });
@@ -63,11 +70,11 @@ export const handleButtonInteraction = async (client: iDiscordClient, interactio
                         break;
                 }
             }
-            const { addCharacter: context } = session.context;
-            if (!context.characters) {
-                context.characters = await fetchCharacters();
+            const { shared } = session.context;
+            if (!shared.characters) {
+                shared.characters = await fetchCharacters();
             }
-            const { embeds, components } = createAddCharacterEmbed(context);
+            const { embeds, components } = createAddCharacterEmbed(session.context);
             await interaction.update({
                 embeds,
                 components,
@@ -110,8 +117,7 @@ export const handleButtonInteraction = async (client: iDiscordClient, interactio
                     } else if (participant.userId) {
                         target = await client.users.fetch(participant.userId);
                     } else {
-                        participant.hasRolled = true;
-                        participant.result = null;
+                        participant.result = rollDice(participant);
                         continue;
                     }
 
@@ -134,12 +140,12 @@ export const handleButtonInteraction = async (client: iDiscordClient, interactio
                             return;
                         }
 
-                        const roll = Math.floor(Math.random() * 20) + 1 + (participant.attributeBonus || 0);
+                        const roll = rollDice(participant);
                         participant.result = roll;
                         participant.hasRolled = true;
 
                         await i.update({
-                            content: `Rolled: ${roll}`,
+                            content: `Rolled: ${roll.finalRoll().toString()}`,
                             components: [],
                             embeds: [],
                         });

@@ -1,4 +1,4 @@
-import { iAddCharacterContext, iCharacterInfo, RollParticipant, SecretMode } from '@typing/commands';
+import { iCharacterInfo, iRollSessionContext, RollParticipant, SecretMode } from '@typing/commands';
 import { addPostfix } from '@utils';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { commandIds } from './constants';
@@ -138,7 +138,7 @@ const addCharacterEmbed = () => {
     ];
 };
 
-export const createAddCharacterEmbed = ({ characters, tab }: iAddCharacterContext) => {
+export const createAddCharacterEmbed = ({ shared: { characters }, addCharacter: { tab } }: iRollSessionContext) => {
     return {
         embeds: addCharacterEmbed(),
         components: embedAddCharacterButtons(characters ?? [], tab),
