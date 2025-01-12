@@ -85,7 +85,7 @@ export async function updateSessionEmbed({
         disableStartRow: session.participants.length === 0,
     });
 
-    await interaction.message.edit({
+    await interaction.update({
         embeds,
         components,
     });

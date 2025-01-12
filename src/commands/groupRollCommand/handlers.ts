@@ -6,7 +6,6 @@ import { commandIds } from './constants';
 import { fetchCharacters, processRolls, updateSessionEmbed } from './helpers';
 
 export const handleButtonInteraction = async (client: iDiscordClient, interaction: ButtonInteraction) => {
-    // await interaction.deferUpdate(); // Acknowledge the interaction
     const session = client.rollSessions.get(interaction.message.id);
     if (!session) {
         await interaction.reply({
