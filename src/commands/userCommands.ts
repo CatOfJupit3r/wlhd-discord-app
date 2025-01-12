@@ -1,10 +1,10 @@
 import { Command } from '@typing/typedefs';
-import { SlashCommandBuilder } from 'discord.js';
+import { CommandInteraction, SlashCommandBuilder } from 'discord.js';
 
 export default [
     {
         built: new SlashCommandBuilder().setName('ping').setDescription('Replies with Pong!'),
-        execute: async (interaction) => {
+        handleCommand: async (_, interaction: CommandInteraction) => {
             await interaction.reply('Pong!');
         },
     },

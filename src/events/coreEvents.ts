@@ -1,22 +1,34 @@
 import { Event } from '@typing/typedefs';
 import { ActivityType, Events } from 'discord.js';
+import {
+    handleAutocompleteCommand,
+    handleButtonInteraction,
+    handleInteractionCommand,
+    handleModalSubmit,
+    handleSelectMenuInteraction,
+} from './coreEventInteractionHandlers';
 
 export default [
     {
         name: Events.InteractionCreate,
         execute: async (client, interaction) => {
-            if (!interaction.isCommand()) return;
-            const command = client.commands.get(interaction.commandName);
-            if (!command) return;
-
+            // console.debug('Registered interaction:', interaction);
             try {
-                await command.execute(interaction);
+                if (interaction.isCommand()) {
+                    await handleInteractionCommand(client, interaction);
+                } else if (interaction.isAutocomplete()) {
+                    await handleAutocompleteCommand(client, interaction);
+                } else if (interaction.isButton()) {
+                    await handleButtonInteraction(client, interaction);
+                } else if (interaction.isModalSubmit()) {
+                    await handleModalSubmit(client, interaction);
+                } else if (interaction.isStringSelectMenu()) {
+                    await handleSelectMenuInteraction(client, interaction);
+                } else {
+                    console.log('Unhandled interaction type:', interaction);
+                }
             } catch (error) {
-                console.error(error);
-                await interaction.reply({
-                    content: 'There was an error while executing this command!',
-                    ephemeral: true,
-                });
+                console.error('Error handling interaction:', error);
             }
         },
     },

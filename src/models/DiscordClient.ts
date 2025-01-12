@@ -1,9 +1,11 @@
+import { GroupRollSessions } from '@typing/commands';
 import { Command, CommandCollection, Event, EventCollection, iDiscordClient } from '@typing/typedefs';
 import { ApplicationCommand, Client, Collection, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
 
 class DiscordClient extends Client implements iDiscordClient {
     public readonly commands: CommandCollection;
     private readonly deprecated: Array<string>;
+    public rollSessions: GroupRollSessions;
 
     constructor({ deprecated = [] }: { deprecated?: Array<string> } = {}) {
         super({
@@ -19,6 +21,7 @@ class DiscordClient extends Client implements iDiscordClient {
 
         this.commands = new Collection();
         this.deprecated = deprecated;
+        this.rollSessions = new Collection();
     }
 
     public connect = async (token: string) => {
