@@ -1,16 +1,10 @@
 import { iRollSession, SecretMode } from '@typing/commands';
 import { Command, iDiscordClient } from '@typing/typedefs';
-import { dePostfixId } from '@utils';
-import {
-    ButtonInteraction,
-    ChatInputCommandInteraction,
-    ComponentType,
-    ModalSubmitInteraction,
-    SlashCommandBuilder,
-} from 'discord.js';
-import { createAddCharacterEmbed, createMainEmbed } from './components';
-import { commandIds, commandName } from './constants';
-import { createSessionTimeout, fetchCharacters, updateSessionEmbed } from './helpers';
+import { isInteractionCreatedByGM } from '@utils';
+import { ButtonInteraction, ChatInputCommandInteraction, ComponentType, SlashCommandBuilder } from 'discord.js';
+import { createMainEmbed } from './components';
+import { commandName } from './constants';
+import { handleButtonInteraction } from './handlers';
 
 const SESSION_TIMEOUT = 150000; // 2.5 minutes in milliseconds
 
@@ -25,13 +19,13 @@ export default [
                     .setDescription('Timer in seconds (max 150)')
                     .setMinValue(5)
                     .setMaxValue(150)
-                    .setRequired(true)
+                    .setRequired(false)
             )
             .addStringOption((option) =>
                 option
                     .setName('secret')
                     .setDescription('How to handle roll visibility')
-                    .setRequired(true)
+                    .setRequired(false)
                     .addChoices(
                         { name: 'Keep In Channel', value: SecretMode.KEEP_IN_CHANNEL },
                         { name: 'Reveal At End', value: SecretMode.REVEAL_AT_END },
@@ -40,8 +34,8 @@ export default [
             ) as SlashCommandBuilder,
 
         async handleCommand(client: iDiscordClient, interaction: ChatInputCommandInteraction) {
-            const timer = interaction.options.getInteger('timer', true);
-            const secret = interaction.options.getString('secret') as SecretMode;
+            const timer = interaction.options.getInteger('timer', false) ?? 150;
+            const secret = (interaction.options.getString('secret') ?? SecretMode.REGULAR) as SecretMode;
 
             // Create new session
             const session: iRollSession = {
@@ -60,16 +54,14 @@ export default [
 
             const { embeds, components } = createMainEmbed({ timer, secret });
 
-            const reply = await interaction.reply({
+            const interactionResponse = await interaction.reply({
                 embeds,
                 components,
             });
+            const reply = await interactionResponse.fetch();
 
             session.messageId = reply.id;
             client.rollSessions.set(reply.id, session);
-
-            // Create timeout for this session
-            createSessionTimeout(client, reply.id, SESSION_TIMEOUT);
 
             // Create collector for the message components
             const collector = reply.createMessageComponentCollector({
@@ -77,141 +69,36 @@ export default [
                 componentType: ComponentType.Button,
             });
 
-            collector.on('end', () => {
+            collector.on('end', async () => {
                 if (client.rollSessions.has(reply.id)) {
-                    reply
-                        .edit({
-                            content: 'Group roll setup timed out.',
-                            components: [],
-                            embeds: [],
-                        })
-                        .then(() => {
-                            client.rollSessions.delete(reply.id);
-                            setTimeout(() => reply.delete(), 5000);
-                        });
+                    if (await reply.fetch()) {
+                        reply
+                            .edit({
+                                content: 'Group roll setup timed out.',
+                                components: [],
+                                embeds: [],
+                            })
+                            .then(() => {
+                                client.rollSessions.delete(reply.id);
+                                setTimeout(() => reply.delete(), 5000);
+                            });
+                    }
                 }
             });
-        },
-        async handleButton(client: iDiscordClient, interaction: ButtonInteraction) {
-            const session = client.rollSessions.get(interaction.message.id);
-            if (!session) {
-                await interaction.reply({
-                    content: 'This group roll session has expired.',
-                    ephemeral: true,
-                });
-                return;
-            }
-            const { customId, postfix } = dePostfixId(interaction.customId);
 
-            switch (customId) {
-                case commandIds.ADD_CHARACTER: {
-                    if (postfix) {
-                        const [action = '', descriptor = ''] = postfix;
-                        switch (action) {
-                            case 'forward':
-                                session.context.addCharacter.tab = Math.min(
-                                    session.context.addCharacter.tab + 1,
-                                    Math.floor(session.context.addCharacter.characters!.length / 5)
-                                );
-                                break;
-                            case 'backward':
-                                session.context.addCharacter.tab = Math.max(session.context.addCharacter.tab - 1, 0);
-                                break;
-                            case 'select':
-                                if (descriptor) {
-                                    const characterInfo = session.context.addCharacter.characters?.find(
-                                        (c) => c.descriptor === descriptor
-                                    );
-                                    if (!characterInfo) {
-                                        console.log('Character not found:', descriptor);
-                                        await interaction.reply({
-                                            content: 'Character not found.',
-                                            ephemeral: true,
-                                        });
-                                        return;
-                                    }
-                                    const { attributeBonus, channelId, userId } = characterInfo;
-                                    session.participants.push({
-                                        descriptor,
-                                        userId,
-                                        channelId,
-                                        attributeBonus,
-                                        hasRolled: false,
-                                        result: null,
-                                    });
-                                    console.log('Added character:', descriptor);
-                                    await updateSessionEmbed({ interaction, session });
-                                    return;
-                                }
-                                break;
-                            case 'max':
-                            case 'current':
-                            default:
-                                break;
-                        }
-                    }
-                    const { addCharacter: context } = session.context;
-                    if (!context.characters) {
-                        context.characters = await fetchCharacters();
-                    }
-                    const { embeds, components } = createAddCharacterEmbed(context);
-                    await interaction.update({
-                        embeds,
-                        components,
+            collector.on('collect', async (interaction: ButtonInteraction) => {
+                if (!interaction.isButton()) return;
+                const isGm = await isInteractionCreatedByGM(interaction);
+                if (!isGm) {
+                    await interaction.reply({
+                        content: 'Only users with the GM role can use these buttons.',
+                        ephemeral: true,
                     });
-                    break;
+                    return;
                 }
-                case commandIds.START_ROLL: {
-                    if (session.participants.length === 0) {
-                        await interaction.reply({
-                            content: 'Cannot start roll without participants!',
-                            ephemeral: true,
-                        });
-                        return;
-                    }
-                    client.rollSessions.delete(interaction.message.id);
-                    await interaction.message.delete();
-                    break;
-                }
-                case commandIds.CANCEL_ROLL: {
-                    client.rollSessions.delete(interaction.message.id);
-                    await interaction.message.delete();
-                    break;
-                }
-                case commandIds.USE_PRESET: {
-                    // todo: add
-                    break;
-                }
-                case commandIds.SETTINGS: {
-                    // todo: add
-                    break;
-                }
-                default:
-                    console.log('Unknown button action:', customId);
-            }
-        },
-
-        async handleModalSubmit(client: iDiscordClient, interaction: ModalSubmitInteraction) {
-            // if (interaction.customId === 'start-group-roll:character_modal') {
-            //     const session = client.rollSessions.get(interaction.message!.id!);
-            //     if (!session) {
-            //         await interaction.reply({
-            //             content: 'This group roll session has expired.',
-            //             ephemeral: true,
-            //         });
-            //         return;
-            //     }
-            //
-            //     const descriptor = interaction.fields.getTextInputValue('start-group-roll:player-descriptor');
-            //     session.participants.push({
-            //         descriptor,
-            //         hasRolled: false,
-            //         result: null,
-            //     });
-            //
-            //     await updateSessionEmbed({ interaction, session });
-            //     await interaction.deferUpdate();
-            // }
+                await handleButtonInteraction(client, interaction);
+                return;
+            });
         },
     },
 ] as Array<Command>;

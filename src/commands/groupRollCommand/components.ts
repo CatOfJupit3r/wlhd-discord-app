@@ -1,4 +1,4 @@
-import { iAddCharacterContext, iCharacterInfo, SecretMode } from '@typing/commands';
+import { iAddCharacterContext, iCharacterInfo, RollParticipant, SecretMode } from '@typing/commands';
 import { addPostfix } from '@utils';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { commandIds } from './constants';
@@ -82,7 +82,7 @@ export const embedAddCharacterButtons = (characters: Array<iCharacterInfo>, tab:
 
     const currentTab = new ButtonBuilder()
         .setCustomId(addPostfix(commandIds.ADD_CHARACTER, 'current'))
-        .setLabel(`${tab + 1}/${maxTab + 1}`)
+        .setLabel(`${tab + 1}`)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(true);
 
@@ -151,3 +151,20 @@ export const createAddCharacterEmbed = ({ characters, tab }: iAddCharacterContex
 
 // SECTION: SETTINGS EMBED
 // settings must have: add as preset, change timer, change secret mode, remove all participants
+
+// SECTION: ROLL EMBED
+export const createRollEmbed = (participant: RollParticipant) => {
+    return {
+        embeds: [
+            new EmbedBuilder()
+                .setTitle('Roll Request')
+                .setDescription(`Time to roll for ${participant.descriptor}!`)
+                .addFields({ name: 'Attribute Bonus', value: `${participant.attributeBonus || 0}` }),
+        ],
+        components: [
+            new ActionRowBuilder<ButtonBuilder>().addComponents(
+                new ButtonBuilder().setCustomId('roll').setLabel('Roll').setStyle(ButtonStyle.Primary)
+            ),
+        ],
+    };
+};

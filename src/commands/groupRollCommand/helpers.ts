@@ -66,29 +66,6 @@ export const fetchCharacters = async (): Promise<Array<iCharacterInfo>> => {
     ];
 };
 
-export const createSessionTimeout = (client: iDiscordClient, messageId: string, timeout: number = 150000) => {
-    setTimeout(async () => {
-        const session = client.rollSessions.get(messageId);
-        if (session) {
-            try {
-                const channel = await client.channels.fetch(session.channelId);
-                if (channel?.isTextBased()) {
-                    const message = await channel.messages.fetch(messageId);
-                    await message.edit({
-                        content: 'Group roll setup timed out after 2.5 minutes.',
-                        components: [],
-                        embeds: [],
-                    });
-                    setTimeout(() => message.delete(), 5000); // Delete after 5 seconds
-                }
-            } catch (error) {
-                console.error('Error handling session timeout:', error);
-            }
-            client.rollSessions.delete(messageId);
-        }
-    }, timeout);
-};
-
 export async function updateSessionEmbed({
     interaction,
     session,
@@ -113,3 +90,20 @@ export async function updateSessionEmbed({
         components,
     });
 }
+
+export const processRolls = async (client: iDiscordClient, session: iRollSession) => {
+    const channel = client.channels.cache.get(session.channelId);
+    if (!channel?.isTextBased()) return;
+    if (!channel?.isSendable()) return;
+
+    const results = session.participants.map((p) => {
+        if (p.result === null) {
+            return `${p.descriptor} skipped their roll`;
+        }
+        return `${p.descriptor} rolled ${p.result}`;
+    });
+
+    await channel.send({
+        content: `Roll Results:\n${results.join('\n')}`,
+    });
+};

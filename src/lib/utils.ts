@@ -1,3 +1,5 @@
+import { ButtonInteraction, CommandInteraction, GuildMember, PermissionsBitField } from 'discord.js';
+
 export const createCommandIdFactory =
     (command: string) =>
     (subId: string, ...leafs: Array<string>) =>
@@ -13,4 +15,18 @@ export const addPostfix = (mainId: string, ...postfix: Array<string>) =>
 export const dePostfixId = (str: string): { customId: string; postfix: Array<string> } => {
     const [mainId = '', ...postfix] = str.split('.');
     return { customId: mainId, postfix };
+};
+
+export const isGM = (member: GuildMember | null) => {
+    if (!member) return false;
+    return (
+        member.roles.cache.some((role) => role.name === 'GM') ||
+        member.permissions.has(PermissionsBitField.Flags.Administrator)
+    );
+};
+
+export const isInteractionCreatedByGM = async (interaction: CommandInteraction | ButtonInteraction) => {
+    if (!interaction.guild) return false;
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    return isGM(member);
 };
